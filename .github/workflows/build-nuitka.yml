@@ -40,7 +40,7 @@ jobs:
         working-directory: helper
         run: |
           pip install gallery-dl nuitka ordered-set zstandard
-          python -m nuitka --onefile --output-filename=metadata-extractor.exe cli.py
+          python -m nuitka --onefile --assume-yes-for-downloads --output-filename=metadata-extractor.exe cli.py
 
       - name: Copy metadata-extractor for Go embed
         run: |
