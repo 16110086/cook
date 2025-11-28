@@ -237,8 +237,9 @@ export function MediaList({
 
   const handleOpenFolder = async () => {
     const settings = getSettings();
+    // Use forward slash for cross-platform compatibility (Go's filepath.Join handles it)
     const folderPath = settings.downloadPath 
-      ? `${settings.downloadPath}\\${accountInfo.name}`
+      ? `${settings.downloadPath}/${accountInfo.name}`
       : accountInfo.name;
     
     try {
@@ -258,7 +259,8 @@ export function MediaList({
 
   const handleConvertGifs = async () => {
     const settings = getSettings();
-    const folderPath = `${settings.downloadPath}\\${accountInfo.name}`;
+    // Use forward slash for cross-platform compatibility (Go's filepath.Join handles it)
+    const folderPath = `${settings.downloadPath}/${accountInfo.name}`;
 
     setIsConverting(true);
     logger.info("Converting GIFs...");

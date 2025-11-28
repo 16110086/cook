@@ -238,9 +238,11 @@ func ConvertGIFsInFolder(folderPath string, fps int, width int, deleteOriginal b
 		return 0, 0, fmt.Errorf("ffmpeg not installed")
 	}
 
-	gifsFolder := filepath.Join(folderPath, "gifs")
+	// Clean the path to handle cross-platform path separators
+	cleanPath := filepath.Clean(folderPath)
+	gifsFolder := filepath.Join(cleanPath, "gifs")
 	if _, err := os.Stat(gifsFolder); os.IsNotExist(err) {
-		return 0, 0, fmt.Errorf("gifs folder not found")
+		return 0, 0, fmt.Errorf("gifs folder not found: %s", gifsFolder)
 	}
 
 	files, err := os.ReadDir(gifsFolder)

@@ -1,5 +1,6 @@
 # Wails Build
 build/
+backend/bin/
 *.exe
 *.dll
 *.dylib

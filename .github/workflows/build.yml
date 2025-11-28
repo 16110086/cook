@@ -37,7 +37,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Build metadata-extractor with PyInstaller
-        working-directory: helper/development
+        working-directory: helper
         run: |
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
@@ -45,7 +45,7 @@ jobs:
       - name: Copy metadata-extractor for Go embed
         run: |
           New-Item -ItemType Directory -Force -Path "backend\bin"
-          Copy-Item -Path "helper\development\dist\metadata-extractor.exe" -Destination "backend\bin\metadata-extractor" -Force
+          Copy-Item -Path "helper\dist\metadata-extractor.exe" -Destination "backend\bin\metadata-extractor" -Force
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -110,7 +110,7 @@ jobs:
 
   build-macos-intel:
     name: Build macOS Intel
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -131,7 +131,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Build metadata-extractor with PyInstaller
-        working-directory: helper/development
+        working-directory: helper
         run: |
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
@@ -139,7 +139,7 @@ jobs:
       - name: Copy metadata-extractor for Go embed
         run: |
           mkdir -p backend/bin
-          cp helper/development/dist/metadata-extractor backend/bin/metadata-extractor
+          cp helper/dist/metadata-extractor backend/bin/metadata-extractor
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -228,7 +228,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Build metadata-extractor with PyInstaller
-        working-directory: helper/development
+        working-directory: helper
         run: |
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
@@ -236,7 +236,7 @@ jobs:
       - name: Copy metadata-extractor for Go embed
         run: |
           mkdir -p backend/bin
-          cp helper/development/dist/metadata-extractor backend/bin/metadata-extractor
+          cp helper/dist/metadata-extractor backend/bin/metadata-extractor
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -325,7 +325,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Build metadata-extractor with PyInstaller
-        working-directory: helper/development
+        working-directory: helper
         run: |
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
@@ -333,7 +333,7 @@ jobs:
       - name: Copy metadata-extractor for Go embed
         run: |
           mkdir -p backend/bin
-          cp helper/development/dist/metadata-extractor backend/bin/metadata-extractor
+          cp helper/dist/metadata-extractor backend/bin/metadata-extractor
 
       - name: Setup Go
         uses: actions/setup-go@v5
