@@ -7,11 +7,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
-//go:embed bin/metadata-extractor.exe
-var metadataExtractorExe []byte
+//go:embed bin/metadata-extractor
+var metadataExtractorBin []byte
+
+// getExecutableName returns the appropriate executable name for the current OS
+func getExecutableName() string {
+	if runtime.GOOS == "windows" {
+		return "metadata-extractor.exe"
+	}
+	return "metadata-extractor"
+}
 
 // AccountInfo represents Twitter account information
 type AccountInfo struct {
@@ -100,14 +109,14 @@ type DateRangeRequest struct {
 
 // ExtractTimeline extracts media from user timeline
 func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
-	// Create temporary file for metadata-extractor.exe
+	// Create temporary file for metadata-extractor
 	tempDir := os.TempDir()
-	exePath := filepath.Join(tempDir, "metadata-extractor.exe")
+	exePath := filepath.Join(tempDir, getExecutableName())
 
-	// Write embedded exe to temporary file
-	err := os.WriteFile(exePath, metadataExtractorExe, 0755)
+	// Write embedded binary to temporary file
+	err := os.WriteFile(exePath, metadataExtractorBin, 0755)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write metadata-extractor.exe: %v", err)
+		return nil, fmt.Errorf("failed to write metadata-extractor: %v", err)
 	}
 	defer os.Remove(exePath)
 
@@ -142,7 +151,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute metadata-extractor.exe: %v, output: %s", err, string(output))
+		return nil, fmt.Errorf("failed to execute metadata-extractor: %v, output: %s", err, string(output))
 	}
 
 	// Find JSON in output (skip any info messages)
@@ -162,14 +171,14 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 
 // ExtractDateRange extracts media based on date range
 func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
-	// Create temporary file for metadata-extractor.exe
+	// Create temporary file for metadata-extractor
 	tempDir := os.TempDir()
-	exePath := filepath.Join(tempDir, "metadata-extractor.exe")
+	exePath := filepath.Join(tempDir, getExecutableName())
 
-	// Write embedded exe to temporary file
-	err := os.WriteFile(exePath, metadataExtractorExe, 0755)
+	// Write embedded binary to temporary file
+	err := os.WriteFile(exePath, metadataExtractorBin, 0755)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write metadata-extractor.exe: %v", err)
+		return nil, fmt.Errorf("failed to write metadata-extractor: %v", err)
 	}
 	defer os.Remove(exePath)
 
@@ -192,7 +201,7 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute metadata-extractor.exe: %v, output: %s", err, string(output))
+		return nil, fmt.Errorf("failed to execute metadata-extractor: %v, output: %s", err, string(output))
 	}
 
 	// Find JSON in output (skip any info messages)

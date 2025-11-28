@@ -42,9 +42,10 @@ jobs:
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
 
-      - name: Copy metadata-extractor to helper folder
+      - name: Copy metadata-extractor for Go embed
         run: |
-          Copy-Item -Path "helper\development\dist\metadata-extractor.exe" -Destination "helper\metadata-extractor.exe" -Force
+          New-Item -ItemType Directory -Force -Path "backend\bin"
+          Copy-Item -Path "helper\development\dist\metadata-extractor.exe" -Destination "backend\bin\metadata-extractor" -Force
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -135,9 +136,10 @@ jobs:
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
 
-      - name: Copy metadata-extractor to helper folder
+      - name: Copy metadata-extractor for Go embed
         run: |
-          cp helper/development/dist/metadata-extractor helper/metadata-extractor
+          mkdir -p backend/bin
+          cp helper/development/dist/metadata-extractor backend/bin/metadata-extractor
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -231,9 +233,10 @@ jobs:
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
 
-      - name: Copy metadata-extractor to helper folder
+      - name: Copy metadata-extractor for Go embed
         run: |
-          cp helper/development/dist/metadata-extractor helper/metadata-extractor
+          mkdir -p backend/bin
+          cp helper/development/dist/metadata-extractor backend/bin/metadata-extractor
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -327,9 +330,10 @@ jobs:
           pip install gallery-dl pyinstaller
           pyinstaller --onefile --name metadata-extractor cli.py
 
-      - name: Copy metadata-extractor to helper folder
+      - name: Copy metadata-extractor for Go embed
         run: |
-          cp helper/development/dist/metadata-extractor helper/metadata-extractor
+          mkdir -p backend/bin
+          cp helper/development/dist/metadata-extractor backend/bin/metadata-extractor
 
       - name: Setup Go
         uses: actions/setup-go@v5

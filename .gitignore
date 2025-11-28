@@ -1,7 +1,6 @@
 # Wails Build
 build/
 *.exe
-!helper/metadata-extractor.exe
 *.dll
 *.dylib
 *.so
