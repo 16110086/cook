@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -11,21 +13,33 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Trash2, Eye, RefreshCw, FileInput, FileOutput } from "lucide-react";
+import { ArrowLeft, Trash2, Eye, FileInput, FileOutput, Pencil, Tag, Shuffle, X } from "lucide-react";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import {
   GetAllAccountsFromDB,
   GetAccountFromDB,
   DeleteAccountFromDB,
+  ClearAllAccountsFromDB,
   SaveAccountToDB,
   ExportAccountJSON,
+  UpdateAccountGroup,
+  GetAllGroups,
 } from "../../wailsjs/go/main/App";
+
+
 
 function getRelativeTime(dateStr: string): string {
   try {
@@ -60,6 +74,13 @@ interface AccountListItem {
   profile_image: string;
   total_media: number;
   last_fetched: string;
+  group_name: string;
+  group_color: string;
+}
+
+interface GroupInfo {
+  name: string;
+  color: string;
 }
 
 interface DatabaseViewProps {
@@ -74,12 +95,21 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [filterGroup, setFilterGroup] = useState<string>("all");
+  const [editingAccount, setEditingAccount] = useState<AccountListItem | null>(null);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [editGroupColor, setEditGroupColor] = useState("");
 
   const loadAccounts = async () => {
     setLoading(true);
     try {
       const data = await GetAllAccountsFromDB();
       setAccounts(data || []);
+      const groupsData = await GetAllGroups();
+      if (groupsData) {
+        setGroups(groupsData.map((g) => ({ name: g.name || "", color: g.color || "" })));
+      }
     } catch (error) {
       console.error("Failed to load accounts:", error);
       toast.error("Failed to load accounts");
@@ -91,6 +121,30 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
   useEffect(() => {
     loadAccounts();
   }, []);
+
+  const filteredAccounts = accounts.filter((acc) => {
+    if (filterGroup === "all") return true;
+    if (filterGroup === "ungrouped") return !acc.group_name;
+    return acc.group_name === filterGroup;
+  });
+
+  const handleEditGroup = (account: AccountListItem) => {
+    setEditingAccount(account);
+    setEditGroupName(account.group_name || "");
+    setEditGroupColor(account.group_color || "#3b82f6");
+  };
+
+  const handleSaveGroup = async () => {
+    if (!editingAccount) return;
+    try {
+      await UpdateAccountGroup(editingAccount.id, editGroupName, editGroupColor);
+      toast.success(`Updated group for @${editingAccount.username}`);
+      setEditingAccount(null);
+      loadAccounts();
+    } catch (error) {
+      toast.error("Failed to update group");
+    }
+  };
 
   const handleDelete = async (id: number, username: string) => {
     try {
@@ -222,14 +276,49 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
             </TooltipTrigger>
             <TooltipContent>Export Selected</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={loadAccounts}>
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Refresh</TooltipContent>
-          </Tooltip>
+          <Dialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="text-destructive" disabled={accounts.length === 0}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Clear All</TooltipContent>
+            </Tooltip>
+            <DialogContent className="[&>button]:hidden">
+              <div className="absolute right-4 top-4">
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+              </div>
+              <DialogHeader>
+                <DialogTitle>Clear All Accounts?</DialogTitle>
+                <DialogDescription>
+                  This will permanently delete all {accounts.length} saved accounts. This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    try {
+                      await ClearAllAccountsFromDB();
+                      toast.success("All accounts deleted");
+                      loadAccounts();
+                    } catch (error) {
+                      toast.error("Failed to clear accounts");
+                    }
+                  }}
+                >
+                  Delete All
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -241,18 +330,42 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {/* Select All */}
-          <div className="flex items-center gap-2 px-4 py-2">
-            <Checkbox
-              checked={selectedIds.size === accounts.length && accounts.length > 0}
-              onCheckedChange={toggleSelectAll}
-            />
-            <span className="text-sm text-muted-foreground">
-              Select all {selectedIds.size > 0 && `(${selectedIds.size} selected)`}
-            </span>
+          {/* Filter and Select All */}
+          <div className="flex items-center gap-4 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedIds.size === filteredAccounts.length && filteredAccounts.length > 0}
+                onCheckedChange={toggleSelectAll}
+              />
+              <span className="text-sm text-muted-foreground">
+                Select all {selectedIds.size > 0 && `(${selectedIds.size} selected)`}
+              </span>
+            </div>
+            <div className="flex-1" />
+            <Select value={filterGroup} onValueChange={setFilterGroup}>
+              <SelectTrigger className="w-auto">
+                <Tag className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                <SelectItem value="ungrouped">Ungrouped</SelectItem>
+                {groups.map((group) => (
+                  <SelectItem key={group.name} value={group.name}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: group.color }}
+                      />
+                      {group.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {accounts
+          {filteredAccounts
             .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
             .map((account) => (
             <div
@@ -274,6 +387,15 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
                 <div className="flex items-center gap-2">
                   <span className="truncate">{account.name}</span>
                   <span className="text-muted-foreground">({account.total_media})</span>
+                  {account.group_name && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs"
+                      style={{ borderColor: account.group_color, color: account.group_color }}
+                    >
+                      {account.group_name}
+                    </Badge>
+                  )}
                 </div>
                 <div className="text-sm text-muted-foreground">@{account.username}</div>
                 <div className="text-sm text-muted-foreground">
@@ -281,6 +403,18 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleEditGroup(account)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit Group</TooltipContent>
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -325,7 +459,14 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
                     </TooltipTrigger>
                     <TooltipContent>Delete</TooltipContent>
                   </Tooltip>
-                  <DialogContent>
+                  <DialogContent className="[&>button]:hidden">
+                    <div className="absolute right-4 top-4">
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-70 hover:opacity-100">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                    </div>
                     <DialogHeader>
                       <DialogTitle>Delete @{account.username}?</DialogTitle>
                       <DialogDescription>
@@ -347,7 +488,7 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
           ))}
 
           {/* Pagination */}
-          {accounts.length > ITEMS_PER_PAGE && (
+          {filteredAccounts.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-center gap-2 pt-4">
               <Button
                 variant="outline"
@@ -358,13 +499,13 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
                 Previous
               </Button>
               <span className="text-sm text-muted-foreground px-4">
-                Page {currentPage} of {Math.ceil(accounts.length / ITEMS_PER_PAGE)}
+                Page {currentPage} of {Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE)}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(accounts.length / ITEMS_PER_PAGE), p + 1))}
-                disabled={currentPage === Math.ceil(accounts.length / ITEMS_PER_PAGE)}
+                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE), p + 1))}
+                disabled={currentPage === Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE)}
               >
                 Next
               </Button>
@@ -372,6 +513,133 @@ export function DatabaseView({ onBack, onLoadAccount }: DatabaseViewProps) {
           )}
         </div>
       )}
+
+      {/* Edit Group Dialog */}
+      <Dialog open={!!editingAccount} onOpenChange={(open) => !open && setEditingAccount(null)}>
+        <DialogContent className="[&>button]:hidden">
+          <div className="absolute right-4 top-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-70 hover:opacity-100"
+              onClick={() => setEditingAccount(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <DialogHeader>
+            <DialogTitle>Edit Group for @{editingAccount?.username}</DialogTitle>
+            <DialogDescription>
+              Assign this account to a group for better organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="groupName">Group Name</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="groupName"
+                  placeholder="e.g., Artists, Photographers, Friends"
+                  value={editGroupName}
+                  onChange={(e) => setEditGroupName(e.target.value)}
+                  className="flex-1"
+                />
+                {groups.length > 0 && (
+                  <Select
+                    value=""
+                    onValueChange={(value) => {
+                      setEditGroupName(value);
+                      const group = groups.find((g) => g.name === value);
+                      if (group) setEditGroupColor(group.color);
+                    }}
+                  >
+                    <SelectTrigger className="w-auto">
+                      <Tag className="h-4 w-4" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map((g) => (
+                        <SelectItem key={g.name} value={g.name}>
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: g.color }}
+                            />
+                            {g.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {editGroupName && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setEditGroupName("");
+                          setEditGroupColor("#3b82f6");
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove from Group</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="groupColor">Group Color</Label>
+              <div className="flex items-center gap-3">
+                <div className="relative w-10 h-10">
+                  <input
+                    id="groupColor"
+                    type="color"
+                    value={editGroupColor}
+                    onChange={(e) => setEditGroupColor(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div
+                    className="w-10 h-10 rounded-full border-2 border-border cursor-pointer"
+                    style={{ backgroundColor: editGroupColor }}
+                  />
+                </div>
+                <Input
+                  value={editGroupColor}
+                  onChange={(e) => setEditGroupColor(e.target.value)}
+                  placeholder="#3b82f6"
+                  className="w-28 font-mono text-sm"
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const randomColor = "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+                        setEditGroupColor(randomColor);
+                      }}
+                    >
+                      <Shuffle className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Random Color</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingAccount(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveGroup}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

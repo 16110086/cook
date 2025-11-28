@@ -13,22 +13,18 @@ from metadata import get_metadata, get_metadata_by_date
 
 
 def print_success(message: str):
-    """Print success message in green."""
-    print(f"✓ {message}")
+    print(f"Success: {message}")
 
 
 def print_error(message: str):
-    """Print error message in red."""
-    print(f"✗ Error: {message}", file=sys.stderr)
+    print(f"Error: {message}", file=sys.stderr)
 
 
 def print_info(message: str):
-    """Print info message."""
-    print(f"ℹ {message}")
+    print(f"Info: {message}")
 
 
 def print_result_summary(data: dict):
-    """Print a summary of the extraction results."""
     if "error" in data:
         print_error(data["error"])
         return False
@@ -80,7 +76,6 @@ def print_result_summary(data: dict):
 
 
 def timeline_mode(args):
-    """Execute timeline extraction mode."""
     print_info(f"Extracting from @{args.username} ({args.timeline_type} timeline)...")
 
     data = get_metadata(
@@ -113,7 +108,6 @@ def timeline_mode(args):
 
 
 def date_range_mode(args):
-    """Execute date range extraction mode."""
     print_info(f"Searching @{args.username} from {args.start_date} to {args.end_date}...")
 
     data = get_metadata_by_date(

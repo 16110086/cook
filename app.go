@@ -327,9 +327,24 @@ func (a *App) DeleteAccountFromDB(id int64) error {
 	return backend.DeleteAccount(id)
 }
 
+// ClearAllAccountsFromDB deletes all accounts from database
+func (a *App) ClearAllAccountsFromDB() error {
+	return backend.ClearAllAccounts()
+}
+
 // ExportAccountJSON exports account to JSON file in specified directory
 func (a *App) ExportAccountJSON(id int64, outputDir string) (string, error) {
 	return backend.ExportAccountToFile(id, outputDir)
+}
+
+// UpdateAccountGroup updates the group for an account
+func (a *App) UpdateAccountGroup(id int64, groupName, groupColor string) error {
+	return backend.UpdateAccountGroup(id, groupName, groupColor)
+}
+
+// GetAllGroups returns all unique groups
+func (a *App) GetAllGroups() ([]map[string]string, error) {
+	return backend.GetAllGroups()
 }
 
 // FFmpeg functions

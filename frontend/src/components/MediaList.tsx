@@ -23,6 +23,10 @@ import {
   Grid3X3,
   List,
   StopCircle,
+  Users,
+  UserPlus,
+  MessageSquare,
+  Calendar,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import type { TimelineEntry, AccountInfo } from "@/types/api";
@@ -85,10 +89,21 @@ function getRelativeTime(dateStr: string): string {
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
     
-    if (diffDays > 0) {
+    if (diffYears > 0) {
+      const remainingMonths = Math.floor((diffDays % 365) / 30);
+      const remainingDays = diffDays % 30;
+      return `(${diffYears}y ${remainingMonths}m ${remainingDays}d ago)`;
+    } else if (diffMonths > 0) {
+      const remainingDays = diffDays % 30;
       const remainingHours = diffHours % 24;
-      return `(${diffDays}d ${remainingHours}h ago)`;
+      return `(${diffMonths}m ${remainingDays}d ${remainingHours}h ago)`;
+    } else if (diffDays > 0) {
+      const remainingHours = diffHours % 24;
+      const remainingMinutes = diffMinutes % 60;
+      return `(${diffDays}d ${remainingHours}h ${remainingMinutes}m ago)`;
     } else if (diffHours > 0) {
       const remainingMinutes = diffMinutes % 60;
       return `(${diffHours}h ${remainingMinutes}m ago)`;
@@ -112,6 +127,16 @@ function formatNumber(num: number): string {
   return num.toString();
 }
 
+function formatJoinDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  } catch {
+    return dateStr;
+  }
+}
+
 export function MediaList({
   accountInfo,
   timeline,
@@ -119,6 +144,7 @@ export function MediaList({
 }: MediaListProps) {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<string>("date-desc");
+  const [filterType, setFilterType] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"large" | "small" | "list">("list");
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
@@ -140,8 +166,19 @@ export function MediaList({
 
   // Filter and sort timeline
   const filteredTimeline = useMemo(() => {
-    const filtered = [...timeline];
+    let filtered = [...timeline];
 
+    // Filter by media type
+    if (filterType !== "all") {
+      filtered = filtered.filter((item) => {
+        if (filterType === "photo") return item.type === "photo";
+        if (filterType === "video") return item.type === "video";
+        if (filterType === "gif") return item.type === "gif" || item.type === "animated_gif";
+        return true;
+      });
+    }
+
+    // Sort
     if (sortBy === "date-asc") {
       filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } else {
@@ -149,7 +186,18 @@ export function MediaList({
     }
 
     return filtered;
-  }, [timeline, sortBy]);
+  }, [timeline, sortBy, filterType]);
+
+  // Count media types
+  const mediaCounts = useMemo(() => {
+    const counts = { photo: 0, video: 0, gif: 0 };
+    timeline.forEach((item) => {
+      if (item.type === "photo") counts.photo++;
+      else if (item.type === "video") counts.video++;
+      else if (item.type === "gif" || item.type === "animated_gif") counts.gif++;
+    });
+    return counts;
+  }, [timeline]);
 
   const toggleSelectAll = () => {
     if (selectedItems.size === filteredTimeline.length) {
@@ -305,9 +353,24 @@ export function MediaList({
             <span className="text-muted-foreground">@{accountInfo.name}</span>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-            <span>{formatNumber(accountInfo.followers_count)} followers</span>
-            <span>{formatNumber(accountInfo.friends_count)} following</span>
-            <span>{formatNumber(accountInfo.statuses_count)} tweets</span>
+            <span className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              {formatNumber(accountInfo.followers_count)} followers
+            </span>
+            <span className="flex items-center gap-1">
+              <UserPlus className="h-3.5 w-3.5" />
+              {formatNumber(accountInfo.friends_count)} following
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare className="h-3.5 w-3.5" />
+              {formatNumber(accountInfo.statuses_count)} tweets
+            </span>
+            {accountInfo.date && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Joined {formatJoinDate(accountInfo.date)}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-right">
@@ -325,6 +388,33 @@ export function MediaList({
           <SelectContent>
             <SelectItem value="date-desc">Newest</SelectItem>
             <SelectItem value="date-asc">Oldest</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-auto">
+            <SelectValue placeholder="Filter" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All ({totalUrls})</SelectItem>
+            <SelectItem value="photo">
+              <span className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Images ({mediaCounts.photo})
+              </span>
+            </SelectItem>
+            <SelectItem value="video">
+              <span className="flex items-center gap-2">
+                <Video className="h-4 w-4" />
+                Videos ({mediaCounts.video})
+              </span>
+            </SelectItem>
+            <SelectItem value="gif">
+              <span className="flex items-center gap-2">
+                <Film className="h-4 w-4" />
+                GIFs ({mediaCounts.gif})
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
 

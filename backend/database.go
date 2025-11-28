@@ -29,6 +29,8 @@ type AccountListItem struct {
 	ProfileImage string `json:"profile_image"`
 	TotalMedia   int    `json:"total_media"`
 	LastFetched  string `json:"last_fetched"`
+	GroupName    string `json:"group_name"`
+	GroupColor   string `json:"group_color"`
 }
 
 var db *sql.DB
@@ -67,10 +69,20 @@ func InitDB() error {
 			profile_image TEXT,
 			total_media INTEGER DEFAULT 0,
 			last_fetched DATETIME,
-			response_json TEXT
+			response_json TEXT,
+			group_name TEXT DEFAULT '',
+			group_color TEXT DEFAULT ''
 		)
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Add group columns if they don't exist (migration for existing databases)
+	db.Exec("ALTER TABLE accounts ADD COLUMN group_name TEXT DEFAULT ''")
+	db.Exec("ALTER TABLE accounts ADD COLUMN group_color TEXT DEFAULT ''")
+
+	return nil
 }
 
 // CloseDB closes the database connection
@@ -111,9 +123,10 @@ func GetAllAccounts() ([]AccountListItem, error) {
 	}
 
 	rows, err := db.Query(`
-		SELECT id, username, name, profile_image, total_media, last_fetched
+		SELECT id, username, name, profile_image, total_media, last_fetched, 
+		       COALESCE(group_name, '') as group_name, COALESCE(group_color, '') as group_color
 		FROM accounts
-		ORDER BY last_fetched DESC
+		ORDER BY group_name ASC, last_fetched DESC
 	`)
 	if err != nil {
 		return nil, err
@@ -124,7 +137,7 @@ func GetAllAccounts() ([]AccountListItem, error) {
 	for rows.Next() {
 		var acc AccountListItem
 		var lastFetched time.Time
-		if err := rows.Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched); err != nil {
+		if err := rows.Scan(&acc.ID, &acc.Username, &acc.Name, &acc.ProfileImage, &acc.TotalMedia, &lastFetched, &acc.GroupName, &acc.GroupColor); err != nil {
 			continue
 		}
 		acc.LastFetched = lastFetched.Format("2006-01-02 15:04")
@@ -132,6 +145,61 @@ func GetAllAccounts() ([]AccountListItem, error) {
 	}
 
 	return accounts, nil
+}
+
+// UpdateAccountGroup updates the group for an account
+func UpdateAccountGroup(id int64, groupName, groupColor string) error {
+	if db == nil {
+		if err := InitDB(); err != nil {
+			return err
+		}
+	}
+
+	_, err := db.Exec("UPDATE accounts SET group_name = ?, group_color = ? WHERE id = ?", groupName, groupColor, id)
+	return err
+}
+
+// GetAllGroups returns all unique groups
+func GetAllGroups() ([]map[string]string, error) {
+	if db == nil {
+		if err := InitDB(); err != nil {
+			return nil, err
+		}
+	}
+
+	rows, err := db.Query(`
+		SELECT DISTINCT group_name, group_color 
+		FROM accounts 
+		WHERE group_name != '' 
+		ORDER BY group_name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []map[string]string
+	for rows.Next() {
+		var name, color string
+		if err := rows.Scan(&name, &color); err != nil {
+			continue
+		}
+		groups = append(groups, map[string]string{"name": name, "color": color})
+	}
+
+	return groups, nil
+}
+
+// ClearAllAccounts deletes all accounts from the database
+func ClearAllAccounts() error {
+	if db == nil {
+		if err := InitDB(); err != nil {
+			return err
+		}
+	}
+
+	_, err := db.Exec("DELETE FROM accounts")
+	return err
 }
 
 // GetAccountByUsername returns a specific account by username
