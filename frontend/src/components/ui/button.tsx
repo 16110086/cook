@@ -41,6 +41,7 @@ function Button({
   variant,
   size,
   asChild = false,
+  onContextMenu,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -48,10 +49,18 @@ function Button({
   }) {
   const Comp = asChild ? Slot : "button"
 
+  const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    if (onContextMenu) {
+      onContextMenu(e)
+    }
+  }
+
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      onContextMenu={handleContextMenu}
       {...props}
     />
   )
