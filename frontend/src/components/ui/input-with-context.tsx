@@ -157,7 +157,7 @@ const InputWithContext = React.forwardRef<HTMLInputElement, InputWithContextProp
 
     return (
       <ContextMenu onOpenChange={checkClipboard}>
-        <ContextMenuTrigger asChild>
+        <ContextMenuTrigger asChild onContextMenu={(e) => e.stopPropagation()}>
           <Input 
             ref={inputRef} 
             type={type} 

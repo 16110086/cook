@@ -137,6 +137,15 @@ func (a *App) OpenFolder(path string) error {
 	return nil
 }
 
+// OpenURL opens a URL in the default browser
+func (a *App) OpenURL(url string) error {
+	if url == "" {
+		return fmt.Errorf("url is required")
+	}
+	runtime.BrowserOpenURL(a.ctx, url)
+	return nil
+}
+
 // SelectFolder opens a folder selection dialog and returns the selected path
 func (a *App) SelectFolder(defaultPath string) (string, error) {
 	return backend.SelectFolderDialog(a.ctx, defaultPath)
