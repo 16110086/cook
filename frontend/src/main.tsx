@@ -5,6 +5,19 @@ import App from "./App.tsx";
 import { Toaster } from "@/components/ui/sonner";
 import { DebugLogger } from "@/components/DebugLogger";
 
+// Disable native context menu on Mac/Linux (except for input fields)
+document.addEventListener("contextmenu", (e) => {
+  const target = e.target as HTMLElement;
+  const tagName = target.tagName.toLowerCase();
+  const isEditable = target.isContentEditable;
+  const isInput = tagName === "input" || tagName === "textarea";
+  
+  // Allow context menu only for input fields
+  if (!isInput && !isEditable) {
+    e.preventDefault();
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

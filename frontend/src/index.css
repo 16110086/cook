@@ -113,6 +113,14 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Disable native context menu on Mac/Linux for Wails */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* Allow text selection in input fields */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
   }
   body {
     @apply bg-background text-foreground;
