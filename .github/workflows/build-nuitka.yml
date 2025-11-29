@@ -45,7 +45,7 @@ jobs:
       - name: Copy metadata-extractor for Go embed
         run: |
           New-Item -ItemType Directory -Force -Path "backend\bin"
-          Copy-Item -Path "helper\metadata-extractor.exe" -Destination "backend\bin\metadata-extractor" -Force
+          Copy-Item -Path "helper\metadata-extractor.exe" -Destination "backend\bin\metadata-extractor.exe" -Force
 
       - name: Setup Go
         uses: actions/setup-go@v5

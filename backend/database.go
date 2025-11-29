@@ -3,6 +3,7 @@ package backend
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -222,6 +223,11 @@ func GetAccountByUsername(username string) (*AccountDB, error) {
 	}
 	acc.LastFetched = lastFetched
 
+	// Convert legacy format if needed
+	if converted, err := ConvertLegacyToNewFormat(acc.ResponseJSON); err == nil {
+		acc.ResponseJSON = converted
+	}
+
 	return &acc, nil
 }
 
@@ -245,6 +251,11 @@ func GetAccountByID(id int64) (*AccountDB, error) {
 	}
 	acc.LastFetched = lastFetched
 
+	// Convert legacy format if needed
+	if converted, err := ConvertLegacyToNewFormat(acc.ResponseJSON); err == nil {
+		acc.ResponseJSON = converted
+	}
+
 	return &acc, nil
 }
 
@@ -265,6 +276,98 @@ func ParseResponseJSON(jsonStr string) (map[string]interface{}, error) {
 	var result map[string]interface{}
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	return result, err
+}
+
+// LegacyMediaEntry represents media entry in old format
+type LegacyMediaEntry struct {
+	TweetID string `json:"tweet_id"`
+	URL     string `json:"url"`
+	Date    string `json:"date"`
+	Type    string `json:"type"`
+}
+
+// LegacyAccountFormat represents the old saved account format
+type LegacyAccountFormat struct {
+	Username       string             `json:"username"`
+	Nick           string             `json:"nick"`
+	Followers      int                `json:"followers"`
+	Following      int                `json:"following"`
+	Posts          int                `json:"posts"`
+	MediaType      string             `json:"media_type"`
+	ProfileImage   string             `json:"profile_image"`
+	FetchMode      string             `json:"fetch_mode"`
+	FetchTimestamp string             `json:"fetch_timestamp"`
+	GroupID        interface{}        `json:"group_id"`
+	MediaList      []LegacyMediaEntry `json:"media_list"`
+}
+
+// ConvertLegacyToNewFormat converts old format to new TwitterResponse format
+func ConvertLegacyToNewFormat(jsonStr string) (string, error) {
+	// First check if it's already in new format (has account_info key)
+	var check map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &check); err != nil {
+		return jsonStr, err
+	}
+
+	// If already has account_info, it's new format - return as is
+	if _, hasAccountInfo := check["account_info"]; hasAccountInfo {
+		return jsonStr, nil
+	}
+
+	// Check if it's legacy format (has username and media_list)
+	if _, hasUsername := check["username"]; !hasUsername {
+		return jsonStr, nil
+	}
+	if _, hasMediaList := check["media_list"]; !hasMediaList {
+		return jsonStr, nil
+	}
+
+	// Parse as legacy format
+	var legacy LegacyAccountFormat
+	if err := json.Unmarshal([]byte(jsonStr), &legacy); err != nil {
+		return jsonStr, err
+	}
+
+	// Convert timeline entries
+	timeline := make([]map[string]interface{}, len(legacy.MediaList))
+	for i, media := range legacy.MediaList {
+		timeline[i] = map[string]interface{}{
+			"url":        media.URL,
+			"date":       media.Date,
+			"tweet_id":   media.TweetID,
+			"type":       media.Type,
+			"is_retweet": false,
+		}
+	}
+
+	// Build new format
+	newFormat := map[string]interface{}{
+		"account_info": map[string]interface{}{
+			"name":            legacy.Username,
+			"nick":            legacy.Nick,
+			"date":            "",
+			"followers_count": legacy.Followers,
+			"friends_count":   legacy.Following,
+			"profile_image":   legacy.ProfileImage,
+			"statuses_count":  legacy.Posts,
+		},
+		"total_urls": len(legacy.MediaList),
+		"timeline":   timeline,
+		"metadata": map[string]interface{}{
+			"new_entries": len(legacy.MediaList),
+			"page":        0,
+			"batch_size":  0,
+			"has_more":    false,
+		},
+	}
+
+	// Convert back to JSON
+	newJSON, err := json.Marshal(newFormat)
+	if err != nil {
+		return jsonStr, err
+	}
+
+	return string(newJSON), nil
 }
 
 // ExportAccountToFile exports account JSON to a file
@@ -293,4 +396,60 @@ func ExportAccountToFile(id int64, outputDir string) (string, error) {
 	}
 
 	return filePath, nil
+}
+
+// ImportAccountFromFile imports account from JSON file (supports both old and new format)
+func ImportAccountFromFile(filePath string) (string, error) {
+	if db == nil {
+		if err := InitDB(); err != nil {
+			return "", err
+		}
+	}
+
+	// Read file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	jsonStr := string(data)
+
+	// Convert legacy format if needed
+	convertedJSON, err := ConvertLegacyToNewFormat(jsonStr)
+	if err != nil {
+		return "", err
+	}
+
+	// Parse the converted JSON to extract account info
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(convertedJSON), &parsed); err != nil {
+		return "", err
+	}
+
+	// Extract account info
+	accountInfo, ok := parsed["account_info"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid JSON format: missing account_info")
+	}
+
+	username, _ := accountInfo["name"].(string)
+	name, _ := accountInfo["nick"].(string)
+	profileImage, _ := accountInfo["profile_image"].(string)
+
+	totalURLs := 0
+	if total, ok := parsed["total_urls"].(float64); ok {
+		totalURLs = int(total)
+	}
+
+	if username == "" {
+		return "", fmt.Errorf("invalid JSON format: missing username")
+	}
+
+	// Save to database
+	err = SaveAccount(username, name, profileImage, totalURLs, convertedJSON)
+	if err != nil {
+		return "", err
+	}
+
+	return username, nil
 }

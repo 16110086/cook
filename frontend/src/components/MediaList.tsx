@@ -27,6 +27,10 @@ import {
   UserPlus,
   MessageSquare,
   Calendar,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import type { TimelineEntry, AccountInfo } from "@/types/api";
@@ -66,6 +70,24 @@ function getThumbnailUrl(url: string): string {
   return url;
 }
 
+function getPreviewUrl(url: string): string {
+  // For images, use large size for preview
+  if (url.includes("pbs.twimg.com/media/")) {
+    if (url.includes("?format=")) {
+      if (url.includes("&name=")) {
+        const parts = url.split("&name=");
+        return parts[0] + "&name=large";
+      }
+      return url + "&name=large";
+    }
+    if (url.includes("?")) {
+      return url + "&name=large";
+    }
+    return url + "?format=jpg&name=large";
+  }
+  return url;
+}
+
 function getMediaIcon(type: string) {
   switch (type) {
     case "photo":
@@ -94,16 +116,13 @@ function getRelativeTime(dateStr: string): string {
     
     if (diffYears > 0) {
       const remainingMonths = Math.floor((diffDays % 365) / 30);
-      const remainingDays = diffDays % 30;
-      return `(${diffYears}y ${remainingMonths}m ${remainingDays}d ago)`;
+      return `(${diffYears}y ${remainingMonths}m ago)`;
     } else if (diffMonths > 0) {
       const remainingDays = diffDays % 30;
-      const remainingHours = diffHours % 24;
-      return `(${diffMonths}m ${remainingDays}d ${remainingHours}h ago)`;
+      return `(${diffMonths}m ${remainingDays}d ago)`;
     } else if (diffDays > 0) {
       const remainingHours = diffHours % 24;
-      const remainingMinutes = diffMinutes % 60;
-      return `(${diffDays}d ${remainingHours}h ${remainingMinutes}m ago)`;
+      return `(${diffDays}d ${remainingHours}h ago)`;
     } else if (diffHours > 0) {
       const remainingMinutes = diffMinutes % 60;
       return `(${diffHours}h ${remainingMinutes}m ago)`;
@@ -125,6 +144,10 @@ function formatNumber(num: number): string {
     return (num / 1000).toFixed(1) + "K";
   }
   return num.toString();
+}
+
+function formatNumberWithComma(num: number): string {
+  return num.toLocaleString();
 }
 
 function formatJoinDate(dateStr: string): string {
@@ -152,6 +175,41 @@ export function MediaList({
   const [isConverting, setIsConverting] = useState(false);
   const [hasGifs, setHasGifs] = useState(false);
   const [ffmpegInstalled, setFfmpegInstalled] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  // Listen for scroll to show/hide scroll-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openPreview = (index: number) => {
+    setPreviewIndex(index);
+  };
+
+  const closePreview = () => {
+    setPreviewIndex(null);
+  };
+
+  // Lock body scroll when preview is open
+  useEffect(() => {
+    if (previewIndex !== null) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [previewIndex]);
 
   // Listen for download progress events
   useEffect(() => {
@@ -187,6 +245,30 @@ export function MediaList({
 
     return filtered;
   }, [timeline, sortBy, filterType]);
+
+  const goToPrevious = () => {
+    if (previewIndex !== null && previewIndex > 0) {
+      setPreviewIndex(previewIndex - 1);
+    }
+  };
+
+  const goToNext = () => {
+    if (previewIndex !== null && previewIndex < filteredTimeline.length - 1) {
+      setPreviewIndex(previewIndex + 1);
+    }
+  };
+
+  // Handle keyboard navigation for preview
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (previewIndex === null) return;
+      if (e.key === "ArrowLeft") goToPrevious();
+      if (e.key === "ArrowRight") goToNext();
+      if (e.key === "Escape") closePreview();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewIndex, filteredTimeline.length]);
 
   // Count media types
   const mediaCounts = useMemo(() => {
@@ -247,7 +329,7 @@ export function MediaList({
 
       if (response.success) {
         logger.success(`Downloaded ${response.downloaded} files`);
-        toast.success(`Downloaded ${response.downloaded} files`);
+        toast.success(`${response.downloaded} files downloaded`);
         setHasDownloaded(true);
         
         // Check if there are GIFs and FFmpeg is installed
@@ -259,12 +341,12 @@ export function MediaList({
         }
       } else {
         logger.error(response.message);
-        toast.error(response.message);
+        toast.error("Download failed");
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error(`Download failed: ${errorMsg}`);
-      toast.error(`Download failed: ${errorMsg}`);
+      toast.error("Download failed");
     } finally {
       setIsDownloading(false);
       setDownloadProgress(null);
@@ -276,7 +358,7 @@ export function MediaList({
       const stopped = await StopDownload();
       if (stopped) {
         logger.info("Download stopped by user");
-        toast.info("Download stopped");
+        toast.info("Stopped");
       }
     } catch (error) {
       console.error("Failed to stop download:", error);
@@ -323,16 +405,16 @@ export function MediaList({
 
       if (response.success) {
         logger.success(`Converted ${response.converted} GIFs`);
-        toast.success(`Converted ${response.converted} GIFs`);
+        toast.success(`${response.converted} GIFs converted`);
         setHasGifs(false);
       } else {
         logger.error(response.message);
-        toast.error(response.message);
+        toast.error("Convert failed");
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error(`Convert failed: ${errorMsg}`);
-      toast.error(`Convert failed: ${errorMsg}`);
+      toast.error("Convert failed");
     } finally {
       setIsConverting(false);
     }
@@ -374,7 +456,7 @@ export function MediaList({
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-primary">{totalUrls}</div>
+          <div className="text-2xl font-bold text-primary">{formatNumberWithComma(totalUrls)}</div>
           <div className="text-sm text-muted-foreground">media found</div>
         </div>
       </div>
@@ -396,23 +478,23 @@ export function MediaList({
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All ({totalUrls})</SelectItem>
+            <SelectItem value="all">All ({formatNumberWithComma(totalUrls)})</SelectItem>
             <SelectItem value="photo">
               <span className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
-                Images ({mediaCounts.photo})
+                Images ({formatNumberWithComma(mediaCounts.photo)})
               </span>
             </SelectItem>
             <SelectItem value="video">
               <span className="flex items-center gap-2">
                 <Video className="h-4 w-4" />
-                Videos ({mediaCounts.video})
+                Videos ({formatNumberWithComma(mediaCounts.video)})
               </span>
             </SelectItem>
             <SelectItem value="gif">
               <span className="flex items-center gap-2">
                 <Film className="h-4 w-4" />
-                GIFs ({mediaCounts.gif})
+                GIFs ({formatNumberWithComma(mediaCounts.gif)})
               </span>
             </SelectItem>
           </SelectContent>
@@ -511,10 +593,10 @@ export function MediaList({
           onCheckedChange={toggleSelectAll}
         />
         <span className="text-sm text-muted-foreground">
-          Select all ({filteredTimeline.length} items)
+          Select all ({formatNumberWithComma(filteredTimeline.length)} items)
         </span>
         {selectedItems.size > 0 && (
-          <Badge variant="secondary">{selectedItems.size} selected</Badge>
+          <Badge variant="secondary">{formatNumberWithComma(selectedItems.size)} selected</Badge>
         )}
       </div>
 
@@ -534,7 +616,13 @@ export function MediaList({
                   checked={isSelected}
                   onCheckedChange={() => toggleItem(index)}
                 />
-                <div className="w-16 h-16 rounded overflow-hidden bg-muted shrink-0">
+                <span className="text-sm text-muted-foreground w-8 text-center shrink-0">
+                  {index + 1}
+                </span>
+                <div
+                  className="w-16 h-16 rounded overflow-hidden bg-muted shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => openPreview(index)}
+                >
                   {item.type === "photo" ? (
                     <img
                       src={getThumbnailUrl(item.url)}
@@ -549,30 +637,30 @@ export function MediaList({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{item.tweet_id}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{item.tweet_id}</p>
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${
+                        item.type === "photo" 
+                          ? "bg-blue-500/20 text-blue-700 dark:text-blue-300" 
+                          : item.type === "video" 
+                          ? "bg-purple-500/20 text-purple-700 dark:text-purple-300"
+                          : "bg-green-500/20 text-green-700 dark:text-green-300"
+                      }`}
+                    >
+                      {getMediaIcon(item.type)}
+                    </Badge>
+                    {item.is_retweet && (
+                      <Badge variant="outline" className="text-xs">
+                        <Repeat2 className="h-3 w-3 mr-1" />
+                        Retweet
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     {item.date} {getRelativeTime(item.date)}
                   </p>
-                  {item.is_retweet && (
-                    <Badge variant="outline" className="text-xs mt-1 w-fit">
-                      <Repeat2 className="h-3 w-3 mr-1" />
-                      Retweet
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center shrink-0">
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-xs ${
-                      item.type === "photo" 
-                        ? "bg-blue-500/20 text-blue-700 dark:text-blue-300" 
-                        : item.type === "video" 
-                        ? "bg-purple-500/20 text-purple-700 dark:text-purple-300"
-                        : "bg-green-500/20 text-green-700 dark:text-green-300"
-                    }`}
-                  >
-                    {item.type}
-                  </Badge>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Button
@@ -635,7 +723,10 @@ export function MediaList({
                 }`}
               >
                 {/* Thumbnail */}
-                <div className="aspect-square bg-muted relative">
+                <div
+                  className="aspect-square bg-muted relative cursor-pointer"
+                  onClick={() => openPreview(index)}
+                >
                   {item.type === "photo" ? (
                     <img
                       src={getThumbnailUrl(item.url)}
@@ -655,7 +746,8 @@ export function MediaList({
                       size="icon"
                       variant="default"
                       className="h-8 w-8"
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         const settings = getSettings();
                         setIsDownloading(true);
                         try {
@@ -691,14 +783,17 @@ export function MediaList({
                       size="icon"
                       variant="outline"
                       className="h-8 w-8"
-                      onClick={() => handleOpenTweet(item.tweet_id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenTweet(item.tweet_id);
+                      }}
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>
 
                   {/* Checkbox */}
-                  <div className="absolute top-2 left-2">
+                  <div className="absolute top-2 left-2" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggleItem(index)}
@@ -730,6 +825,13 @@ export function MediaList({
                       </Badge>
                     </div>
                   )}
+
+                  {/* Number badge - bottom left inside thumbnail */}
+                  <div className="absolute bottom-2 left-2">
+                    <span className="text-xs px-1.5 py-0.5 bg-black/60 text-white rounded">
+                      {index + 1}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Info */}
@@ -743,6 +845,137 @@ export function MediaList({
         </div>
       )}
 
+      {/* Media Preview Overlay */}
+      {previewIndex !== null && filteredTimeline[previewIndex] && (
+        <div className="fixed inset-0 z-40 bg-black/80 flex flex-col items-center justify-center pt-8">
+          {/* Close button - top right */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 text-white hover:bg-white/20 h-10 w-10 z-10"
+            onClick={closePreview}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+
+          {/* Previous button - left side */}
+          {previewIndex > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 h-12 w-12 z-10"
+              onClick={goToPrevious}
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </Button>
+          )}
+
+          {/* Counter - above media */}
+          <div className="text-white text-sm bg-black/50 px-4 py-1.5 rounded-full mb-4">
+            {previewIndex + 1} / {filteredTimeline.length}
+          </div>
+
+          {/* Media content - center */}
+          <div className="max-w-[90%] max-h-[70%] flex items-center justify-center">
+            {filteredTimeline[previewIndex].type === "photo" ? (
+              <img
+                src={getPreviewUrl(filteredTimeline[previewIndex].url)}
+                alt=""
+                className="max-w-full max-h-[65vh] object-contain rounded-lg"
+              />
+            ) : filteredTimeline[previewIndex].type === "video" ? (
+              <video
+                src={filteredTimeline[previewIndex].url}
+                controls
+                autoPlay
+                className="max-w-full max-h-[65vh] rounded-lg"
+              />
+            ) : (
+              <video
+                src={filteredTimeline[previewIndex].url}
+                autoPlay
+                loop
+                muted
+                className="max-w-full max-h-[65vh] rounded-lg"
+              />
+            )}
+          </div>
+
+          {/* Action buttons - bottom center */}
+          <div className="flex items-center gap-3 mt-4 z-10">
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9"
+              onClick={async () => {
+                const item = filteredTimeline[previewIndex];
+                const settings = getSettings();
+                setIsDownloading(true);
+                try {
+                  const request = new main.DownloadMediaWithMetadataRequest({
+                    items: [new main.MediaItemRequest({
+                      url: item.url,
+                      date: item.date,
+                      tweet_id: item.tweet_id,
+                      type: item.type,
+                    })],
+                    output_dir: settings.downloadPath,
+                    username: accountInfo.name,
+                  });
+                  const response = await DownloadMediaWithMetadata(request);
+                  if (response.success) {
+                    toast.success("Downloaded");
+                    setHasDownloaded(true);
+                  } else {
+                    toast.error("Download failed");
+                  }
+                } catch {
+                  toast.error("Download failed");
+                } finally {
+                  setIsDownloading(false);
+                }
+              }}
+              disabled={isDownloading}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Download
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9"
+              onClick={() => handleOpenTweet(filteredTimeline[previewIndex].tweet_id)}
+            >
+              <ExternalLink className="h-4 w-4 mr-1" />
+              Open Tweet
+            </Button>
+          </div>
+
+          {/* Next button - right side */}
+          {previewIndex < filteredTimeline.length - 1 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 h-12 w-12 z-10"
+              onClick={goToNext}
+            >
+              <ChevronRight className="h-8 w-8" />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Scroll to Top Button - hide when preview is open */}
+      {showScrollTop && previewIndex === null && (
+        <Button
+          variant="default"
+          size="icon"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 h-9 w-9 rounded-full shadow-lg z-30"
+          onClick={scrollToTop}
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }

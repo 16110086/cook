@@ -132,7 +132,7 @@ function App() {
   const handleStopFetch = () => {
     stopFetchRef.current = true;
     logger.info("Stopping after current batch completes...");
-    toast.info("Stopping after current batch...");
+    toast.info("Stopping...");
   };
 
   const handleFetch = async (
@@ -236,7 +236,7 @@ function App() {
             // Check if stopped AFTER processing current batch
             if (stopFetchRef.current) {
               logger.info(`Fetch stopped by user after ${allTimeline.length} items`);
-              toast.info(`Stopped after fetching ${allTimeline.length} items`);
+              toast.info(`Stopped at ${allTimeline.length} items`);
               break;
             }
 
@@ -278,12 +278,12 @@ function App() {
         }
         
         logger.success(`Found ${finalData.total_urls} media items`);
-        toast.success(`Found ${finalData.total_urls} media items`);
+        toast.success(`${finalData.total_urls} media items found`);
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to fetch: ${errorMsg}`);
-      toast.error(`Failed to fetch: ${errorMsg}`);
+      toast.error("Failed to fetch media");
     } finally {
       setLoading(false);
     }

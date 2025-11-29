@@ -1,7 +1,6 @@
 package backend
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,9 +9,6 @@ import (
 	"runtime"
 	"strings"
 )
-
-//go:embed bin/metadata-extractor
-var metadataExtractorBin []byte
 
 // getExecutableName returns the appropriate executable name for the current OS
 func getExecutableName() string {
@@ -121,7 +117,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 	defer os.Remove(exePath)
 
 	// Build command arguments - global args first, then subcommand
-	args := []string{"-t", req.AuthToken, "--json", "timeline", req.Username}
+	args := []string{"--token", req.AuthToken, "--json", "timeline", req.Username}
 
 	// Add optional parameters for timeline subcommand
 	if req.TimelineType != "" && req.TimelineType != "media" {
@@ -129,15 +125,14 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 	}
 
 	// BatchSize: 0 = all (no limit), >0 = specific batch size
-	// Always pass -b parameter
-	args = append(args, "-b", fmt.Sprintf("%d", req.BatchSize))
+	args = append(args, "--batch-size", fmt.Sprintf("%d", req.BatchSize))
 
 	if req.Page > 0 {
-		args = append(args, "-p", fmt.Sprintf("%d", req.Page))
+		args = append(args, "--page", fmt.Sprintf("%d", req.Page))
 	}
 
 	if req.MediaType != "" && req.MediaType != "all" {
-		args = append(args, "-m", req.MediaType)
+		args = append(args, "--media-type", req.MediaType)
 	}
 
 	if req.Retweets {
@@ -184,16 +179,16 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 
 	// Build command arguments - global args first, then subcommand
 	args := []string{
-		"-t", req.AuthToken,
+		"--token", req.AuthToken,
 		"--json",
 		"daterange", req.Username,
-		"-s", req.StartDate,
-		"-e", req.EndDate,
+		"--start-date", req.StartDate,
+		"--end-date", req.EndDate,
 	}
 
 	// Add optional media filter
 	if req.MediaFilter != "" {
-		args = append(args, "-f", req.MediaFilter)
+		args = append(args, "--filter", req.MediaFilter)
 	}
 
 	// Execute command with UTF-8 encoding

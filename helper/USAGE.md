@@ -6,25 +6,25 @@ Extract media from a user's timeline:
 
 ```bash
 # Basic - extract media timeline
-metadata-extractor.exe timeline USERNAME -t TOKEN
+metadata-extractor.exe --token TOKEN timeline USERNAME
 
 # With pagination (50 items per page)
-metadata-extractor.exe timeline USERNAME -t TOKEN -b 50 -p 0
+metadata-extractor.exe --token TOKEN timeline USERNAME --batch-size 50 --page 0
 
 # Filter images only, exclude retweets
-metadata-extractor.exe timeline USERNAME -t TOKEN -m image --no-retweets
+metadata-extractor.exe --token TOKEN timeline USERNAME --media-type image --no-retweets
 
 # Include retweets
-metadata-extractor.exe timeline USERNAME -t TOKEN --retweets
+metadata-extractor.exe --token TOKEN timeline USERNAME --retweets
 
 # Timeline with replies
-metadata-extractor.exe timeline USERNAME -t TOKEN --timeline-type with_replies
+metadata-extractor.exe --token TOKEN timeline USERNAME --timeline-type with_replies
 
 # Save to JSON file
-metadata-extractor.exe timeline USERNAME -t TOKEN -o output.json
+metadata-extractor.exe --token TOKEN --output output.json timeline USERNAME
 
 # Output raw JSON (pipe to other tools)
-metadata-extractor.exe timeline USERNAME -t TOKEN --json
+metadata-extractor.exe --token TOKEN --json timeline USERNAME
 ```
 
 **Timeline Type Options**:
@@ -49,13 +49,13 @@ Extract media based on date range:
 
 ```bash
 # Basic date range
-metadata-extractor.exe daterange USERNAME -t TOKEN -s 2024-01-01 -e 2024-12-31
+metadata-extractor.exe --token TOKEN daterange USERNAME --start-date 2024-01-01 --end-date 2024-12-31
 
 # With custom filter
-metadata-extractor.exe daterange USERNAME -t TOKEN -s 2024-01-01 -e 2024-12-31 -f "filter:timeline"
+metadata-extractor.exe --token TOKEN daterange USERNAME --start-date 2024-01-01 --end-date 2024-12-31 --filter "filter:timeline"
 
 # Save to file
-metadata-extractor.exe daterange USERNAME -t TOKEN -s 2024-01-01 -e 2024-12-31 -o archive.json
+metadata-extractor.exe --token TOKEN --output archive.json daterange USERNAME --start-date 2024-01-01 --end-date 2024-12-31
 ```
 
 ---
@@ -66,19 +66,19 @@ The tool supports multiple username input formats:
 
 ```bash
 # Plain username
-metadata-extractor.exe timeline masteraoko -t TOKEN
+metadata-extractor.exe --token TOKEN timeline masteraoko
 
 # With @
-metadata-extractor.exe timeline @masteraoko -t TOKEN
+metadata-extractor.exe --token TOKEN timeline @masteraoko
 
 # Full URL
-metadata-extractor.exe timeline "https://x.com/masteraoko" -t TOKEN
+metadata-extractor.exe --token TOKEN timeline "https://x.com/masteraoko"
 
 # Twitter domain URL
-metadata-extractor.exe timeline "https://twitter.com/masteraoko" -t TOKEN
+metadata-extractor.exe --token TOKEN timeline "https://twitter.com/masteraoko"
 
 # User ID (for suspended/private accounts)
-metadata-extractor.exe timeline "id:123456789" -t TOKEN
+metadata-extractor.exe --token TOKEN timeline "id:123456789"
 ```
 
 ---
@@ -88,28 +88,28 @@ metadata-extractor.exe timeline "id:123456789" -t TOKEN
 ### Global Options
 
 ```
--t, --auth-token AUTH_TOKEN   Twitter auth token (required)
--o, --output FILE             Output JSON file path (optional)
---json                        Output raw JSON without formatting
+--token TOKEN       Twitter auth token (required)
+--output FILE       Output JSON file path (optional)
+--json              Output raw JSON without formatting
 ```
 
 ### Timeline Mode Options
 
 ```
---timeline-type TYPE          Timeline type: media, timeline, tweets, with_replies
--b, --batch-size NUM          Items per request (default: 100, 0 = all)
--p, --page NUM                Page number for pagination (default: 0)
--m, --media-type TYPE         Media filter: all, image, video, gif
---retweets                    Include retweets
---no-retweets                 Exclude retweets (default)
+--timeline-type TYPE    Timeline type: media, timeline, tweets, with_replies
+--batch-size NUM        Items per request (default: 100, 0 = all)
+--page NUM              Page number for pagination (default: 0)
+--media-type TYPE       Media filter: all, image, video, gif
+--retweets              Include retweets
+--no-retweets           Exclude retweets (default)
 ```
 
 ### Date Range Mode Options
 
 ```
--s, --start-date YYYY-MM-DD   Start date (required)
--e, --end-date YYYY-MM-DD     End date (required)
--f, --media-filter FILTER     Media filter (default: filter:media)
+--start-date YYYY-MM-DD   Start date (required)
+--end-date YYYY-MM-DD     End date (required)
+--filter FILTER           Media filter (default: filter:media)
 ```
 
 ---
@@ -189,7 +189,7 @@ Raw JSON for automation:
 
 ```bash
 # Step 1: Extract metadata
-metadata-extractor.exe timeline USERNAME -t TOKEN -o metadata.json
+metadata-extractor.exe --token TOKEN --output metadata.json timeline USERNAME
 
 # Step 2: Extract URLs (PowerShell)
 Get-Content metadata.json | ConvertFrom-Json | Select-Object -ExpandProperty timeline | Select-Object -ExpandProperty url > urls.txt
@@ -204,10 +204,10 @@ wget -i urls.txt -P downloads/
 
 ```bash
 # Yearly archive
-metadata-extractor.exe daterange USERNAME -t TOKEN -s 2024-01-01 -e 2024-12-31 -o 2024.json
+metadata-extractor.exe --token TOKEN --output 2024.json daterange USERNAME --start-date 2024-01-01 --end-date 2024-12-31
 
 # Monthly archive
-metadata-extractor.exe daterange USERNAME -t TOKEN -s 2024-01-01 -e 2024-01-31 -o jan_2024.json
+metadata-extractor.exe --token TOKEN --output jan_2024.json daterange USERNAME --start-date 2024-01-01 --end-date 2024-01-31
 ```
 
 ---
@@ -215,7 +215,7 @@ metadata-extractor.exe daterange USERNAME -t TOKEN -s 2024-01-01 -e 2024-01-31 -
 ### 3. Extract Videos Only
 
 ```bash
-metadata-extractor.exe timeline USERNAME -t TOKEN -m video -o videos.json
+metadata-extractor.exe --token TOKEN --output videos.json timeline USERNAME --media-type video
 ```
 
 ---
@@ -230,7 +230,7 @@ set USER=username
 REM Extract page by page
 for /L %%i in (0,1,9) do (
     echo Extracting page %%i...
-    metadata-extractor.exe timeline %USER% -t %TOKEN% -b 100 -p %%i -o page_%%i.json
+    metadata-extractor.exe --token %TOKEN% --output page_%%i.json timeline %USER% --batch-size 100 --page %%i
     timeout /t 2 /nobreak >nul
 )
 ```
@@ -245,7 +245,7 @@ set TOKEN=YOUR_TOKEN
 
 for %%u in (user1 user2 user3) do (
     echo Processing %%u...
-    metadata-extractor.exe timeline %%u -t %TOKEN% -o %%u.json
+    metadata-extractor.exe --token %TOKEN% --output %%u.json timeline %%u
     timeout /t 5 /nobreak >nul
 )
 ```

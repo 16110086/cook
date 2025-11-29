@@ -76,11 +76,11 @@ def print_result_summary(data: dict):
 
 
 def timeline_mode(args):
-    print_info(f"Extracting from @{args.username} ({args.timeline_type} timeline)...")
+    print_info(f"extracting from @{args.username} (timeline {args.timeline_type})...")
 
     data = get_metadata(
         username=args.username,
-        auth_token=args.auth_token,
+        auth_token=args.token,
         timeline_type=args.timeline_type,
         batch_size=args.batch_size,
         page=args.page,
@@ -108,11 +108,11 @@ def timeline_mode(args):
 
 
 def date_range_mode(args):
-    print_info(f"Searching @{args.username} from {args.start_date} to {args.end_date}...")
+    print_info(f"searching @{args.username} from {args.start_date} to {args.end_date}...")
 
     data = get_metadata_by_date(
         username=args.username,
-        auth_token=args.auth_token,
+        auth_token=args.token,
         date_start=args.start_date,
         date_end=args.end_date,
         media_filter=args.media_filter,
@@ -137,22 +137,22 @@ def main():
         epilog="""
 Examples:
   # Extract media timeline
-  %(prog)s timeline masteraoko -t YOUR_TOKEN
+  %(prog)s --token YOUR_TOKEN timeline masteraoko
 
   # Extract with pagination
-  %(prog)s timeline masteraoko -t YOUR_TOKEN -b 100 -p 0
+  %(prog)s --token YOUR_TOKEN timeline masteraoko --batch-size 100 --page 0
 
   # Extract only images, exclude retweets
-  %(prog)s timeline masteraoko -t YOUR_TOKEN -m image --no-retweets
+  %(prog)s --token YOUR_TOKEN timeline masteraoko --media-type image --no-retweets
 
   # Extract by date range
-  %(prog)s daterange masteraoko -t YOUR_TOKEN -s 2024-01-01 -e 2024-12-31
+  %(prog)s --token YOUR_TOKEN daterange masteraoko --start-date 2024-01-01 --end-date 2024-12-31
 
   # Save to file
-  %(prog)s timeline masteraoko -t YOUR_TOKEN -o output.json
+  %(prog)s --token YOUR_TOKEN --output output.json timeline masteraoko
 
   # Get raw JSON output
-  %(prog)s timeline masteraoko -t YOUR_TOKEN --json
+  %(prog)s --token YOUR_TOKEN --json timeline masteraoko
 
 Username formats supported:
   - Plain: masteraoko
@@ -162,11 +162,11 @@ Username formats supported:
         """
     )
 
-    # Global arguments
-    parser.add_argument('-t', '--auth-token',
+    # Global arguments (use long flags only to avoid conflicts with Python/Nuitka)
+    parser.add_argument('--token',
                        required=True,
                        help='Twitter/X authentication token (required)')
-    parser.add_argument('-o', '--output',
+    parser.add_argument('--output',
                        help='Output JSON file path (optional)')
     parser.add_argument('--json',
                        action='store_true',
@@ -184,15 +184,15 @@ Username formats supported:
                                 default='media',
                                 choices=['media', 'timeline', 'tweets', 'with_replies'],
                                 help='Timeline type to extract (default: media)')
-    timeline_parser.add_argument('-b', '--batch-size',
+    timeline_parser.add_argument('--batch-size',
                                 type=int,
                                 default=100,
                                 help='Number of items per request (0 = fetch all, default: 100)')
-    timeline_parser.add_argument('-p', '--page',
+    timeline_parser.add_argument('--page',
                                 type=int,
                                 default=0,
                                 help='Page number for pagination (0-based, default: 0)')
-    timeline_parser.add_argument('-m', '--media-type',
+    timeline_parser.add_argument('--media-type',
                                 default='all',
                                 choices=['all', 'image', 'video', 'gif'],
                                 help='Media type filter (default: all)')
@@ -209,13 +209,14 @@ Username formats supported:
                                             help='Extract by date range')
     daterange_parser.add_argument('username',
                                  help='Twitter username (supports multiple formats)')
-    daterange_parser.add_argument('-s', '--start-date',
+    daterange_parser.add_argument('--start-date',
                                  required=True,
                                  help='Start date (YYYY-MM-DD)')
-    daterange_parser.add_argument('-e', '--end-date',
+    daterange_parser.add_argument('--end-date',
                                  required=True,
                                  help='End date (YYYY-MM-DD)')
-    daterange_parser.add_argument('-f', '--media-filter',
+    daterange_parser.add_argument('--filter',
+                                 dest='media_filter',
                                  default='filter:media',
                                  help='Media filter (default: filter:media)')
 

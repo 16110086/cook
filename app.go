@@ -399,3 +399,41 @@ func (a *App) ConvertGIFs(req ConvertGIFsRequest) (ConvertGIFsResponse, error) {
 		Message:   fmt.Sprintf("Converted %d GIFs, %d failed", converted, failed),
 	}, nil
 }
+
+// ImportAccountResponse represents the response for import operation
+type ImportAccountResponse struct {
+	Success  bool   `json:"success"`
+	Username string `json:"username"`
+	Message  string `json:"message"`
+}
+
+// ImportAccountFromJSON imports account from JSON file (supports both old and new format)
+func (a *App) ImportAccountFromJSON() (ImportAccountResponse, error) {
+	// Open file dialog
+	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Import Account JSON",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON Files", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return ImportAccountResponse{Success: false, Message: err.Error()}, err
+	}
+
+	// User cancelled
+	if filePath == "" {
+		return ImportAccountResponse{Success: false, Message: "Cancelled"}, nil
+	}
+
+	// Import the file
+	username, err := backend.ImportAccountFromFile(filePath)
+	if err != nil {
+		return ImportAccountResponse{Success: false, Message: err.Error()}, err
+	}
+
+	return ImportAccountResponse{
+		Success:  true,
+		Username: username,
+		Message:  fmt.Sprintf("Successfully imported @%s", username),
+	}, nil
+}
