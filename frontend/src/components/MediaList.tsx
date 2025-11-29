@@ -37,6 +37,7 @@ import type { TimelineEntry, AccountInfo } from "@/types/api";
 import { logger } from "@/lib/logger";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
+import { openExternal } from "@/lib/utils";
 import { DownloadMediaWithMetadata, OpenFolder, IsFFmpegInstalled, ConvertGIFs, StopDownload } from "../../wailsjs/go/main/App";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 import { main } from "../../wailsjs/go/models";
@@ -384,7 +385,7 @@ export function MediaList({
   };
 
   const handleOpenTweet = (tweetId: string) => {
-    window.open(`https://x.com/${accountInfo.name}/status/${tweetId}`, "_blank");
+    openExternal(`https://x.com/${accountInfo.name}/status/${tweetId}`);
   };
 
   const handleConvertGifs = async () => {
