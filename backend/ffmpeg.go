@@ -224,6 +224,7 @@ func ConvertMP4ToGIF(inputPath, outputPath string, fps int, width int) error {
 	}
 
 	cmd := exec.Command(ffmpegPath, args...)
+	hideWindow(cmd) // Hide console window on Windows
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg error: %v, output: %s", err, string(output))

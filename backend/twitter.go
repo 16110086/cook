@@ -144,6 +144,7 @@ func ExtractTimeline(req TimelineRequest) (*TwitterResponse, error) {
 	// Execute command with UTF-8 encoding
 	cmd := exec.Command(exePath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
+	hideWindow(cmd) // Hide console window on Windows
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute metadata-extractor: %v, output: %s", err, string(output))
@@ -194,6 +195,7 @@ func ExtractDateRange(req DateRangeRequest) (*TwitterResponse, error) {
 	// Execute command with UTF-8 encoding
 	cmd := exec.Command(exePath, args...)
 	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
+	hideWindow(cmd) // Hide console window on Windows
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute metadata-extractor: %v, output: %s", err, string(output))

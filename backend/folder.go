@@ -22,6 +22,7 @@ func OpenFolderInExplorer(path string) error {
 		cmd = exec.Command("xdg-open", path)
 	}
 
+	hideWindow(cmd) // Hide console window on Windows
 	return cmd.Start()
 }
 
